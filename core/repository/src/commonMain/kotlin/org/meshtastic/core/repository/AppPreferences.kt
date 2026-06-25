@@ -231,6 +231,11 @@ interface MapPrefs {
     val lastHeardTrackFilter: StateFlow<Long>
 
     fun setLastHeardTrackFilter(seconds: Long)
+
+    /** Max-hops-away map filter, stored as the inclusive hop bound (-1 == no filtering). */
+    val maxHopsFilter: StateFlow<Int>
+
+    fun setMaxHopsFilter(maxHops: Int)
 }
 
 /** Reactive interface for map consent. */

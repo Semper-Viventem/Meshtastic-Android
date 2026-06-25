@@ -37,5 +37,16 @@ kotlin {
             implementation(projects.core.ui)
             implementation(projects.core.di)
         }
+        commonTest.dependencies {
+            implementation(libs.compose.multiplatform.ui.test)
+        }
+        // Skiko's platform native runtime for the JVM/desktop Compose UI test (runComposeUiTest uses
+        // Skiko to render). compose.ui:ui-test brings only the common API, not the per-OS native, so
+        // the test fails with "Cannot find libskiko-linux-x64.so". 0.144.6 == the Skiko version for
+        // compose-multiplatform 1.11.1 (see root build.gradle.kts). JVM-only (not in commonTest, which
+        // would leak it onto the iOS test classpath).
+        jvmTest.dependencies {
+            implementation("org.jetbrains.skiko:skiko-awt-runtime-linux-x64:0.144.6")
+        }
     }
 }

@@ -885,6 +885,8 @@
     <string name="match_all">Match All | Any</string>
     <string name="match_any">Match Any | All</string>
     <string name="max">Max</string>
+    <string name="max_hops_direct">0 (direct connect)</string>
+    <string name="max_hops_filter_label">Max hops away: %1$s</string>
     <string name="mesh_map_location">Mesh Map Location</string>
     <string name="mesh_map_location_description">Enables the blue location dot for your phone in the mesh map.</string>
     <!-- MESHTASTIC -->

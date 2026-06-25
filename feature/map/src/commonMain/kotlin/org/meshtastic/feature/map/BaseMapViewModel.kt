@@ -38,6 +38,7 @@ import org.meshtastic.core.repository.RadioController
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.any
 import org.meshtastic.core.resources.eight_hours
+import org.meshtastic.core.resources.max_hops_direct
 import org.meshtastic.core.resources.one_day
 import org.meshtastic.core.resources.one_hour
 import org.meshtastic.core.resources.two_days
@@ -143,6 +144,14 @@ open class BaseMapViewModel(
         mapPrefs.setLastHeardTrackFilter(filter.seconds)
     }
 
+    private val maxHopsFilterValue = MutableStateFlow(MaxHopsFilter.fromHops(mapPrefs.maxHopsFilter.value))
+    val maxHopsFilter: StateFlow<MaxHopsFilter> = maxHopsFilterValue.asStateFlow()
+
+    fun setMaxHopsFilter(filter: MaxHopsFilter) {
+        maxHopsFilterValue.value = filter
+        mapPrefs.setMaxHopsFilter(filter.maxHops)
+    }
+
     open fun getUser(userId: String?) =
         nodeRepository.getUser(userId ?: org.meshtastic.core.model.NodeAddress.ID_BROADCAST)
 
@@ -170,18 +179,24 @@ open class BaseMapViewModel(
         val showPrecisionCircle: Boolean,
         val lastHeardFilter: LastHeardFilter,
         val lastHeardTrackFilter: LastHeardFilter,
+        val maxHopsFilter: MaxHopsFilter = MaxHopsFilter.Any,
     )
 
     val mapFilterStateFlow: StateFlow<MapFilterState> =
         combine(
-            showOnlyFavorites,
-            showWaypointsOnMap,
-            showPrecisionCircleOnMap,
-            lastHeardFilter,
-            lastHeardTrackFilter,
-        ) { favoritesOnly, showWaypoints, showPrecisionCircle, lastHeardFilter, lastHeardTrackFilter ->
-            MapFilterState(favoritesOnly, showWaypoints, showPrecisionCircle, lastHeardFilter, lastHeardTrackFilter)
-        }
+            // combine() only has typed overloads up to 5 flows, so build the 5-filter base and graft the
+            // max-hops filter on with copy(); keeps a single source of truth for MapFilterState.
+            combine(
+                showOnlyFavorites,
+                showWaypointsOnMap,
+                showPrecisionCircleOnMap,
+                lastHeardFilter,
+                lastHeardTrackFilter,
+            ) { favoritesOnly, showWaypoints, showPrecisionCircle, lastHeardFilter, lastHeardTrackFilter ->
+                MapFilterState(favoritesOnly, showWaypoints, showPrecisionCircle, lastHeardFilter, lastHeardTrackFilter)
+            },
+            maxHopsFilter,
+        ) { base, maxHops -> base.copy(maxHopsFilter = maxHops) }
             .stateInWhileSubscribed(
                 initialValue =
                 MapFilterState(
@@ -190,9 +205,38 @@ open class BaseMapViewModel(
                     showPrecisionCircleOnMap.value,
                     lastHeardFilter.value,
                     lastHeardTrackFilter.value,
+                    maxHopsFilter.value,
                 ),
             )
 }
+
+/**
+ * Whether [this] node passes the currently-applied [MapFilterState]. Pure and side-effect free so it can be shared by
+ * every map flavor and unit-tested directly. The user's own node ([ourNodeNum]) is always kept so it never disappears
+ * from the map regardless of the active filters.
+ *
+ * @param nowSeconds current epoch seconds, injected so callers (and tests) control "now".
+ */
+fun Node.matchesMapFilters(state: BaseMapViewModel.MapFilterState, ourNodeNum: Int?, nowSeconds: Long): Boolean {
+    val isOurNode = ourNodeNum != null && num == ourNodeNum
+    if (isOurNode) return true
+
+    if (state.onlyFavorites && !isFavorite) return false
+
+    val lastHeardSeconds = state.lastHeardFilter.seconds
+    if (lastHeardSeconds != 0L && (nowSeconds - lastHeard) > lastHeardSeconds) return false
+
+    val maxHops = state.maxHopsFilter.maxHops
+    // maxHops < 0 == MaxHopsFilter.Any -> no graph-distance filtering. Otherwise keep only nodes whose known
+    // hop distance is within range; unknown-hop nodes (hopsAway == -1) are excluded once a hop filter is active.
+    if (maxHops >= 0 && hopsAway !in 0..maxHops) return false
+
+    return true
+}
+
+/** Applies the [state] map filters to a node list. See [matchesMapFilters]. */
+fun List<Node>.applyMapFilters(state: BaseMapViewModel.MapFilterState, ourNodeNum: Int?, nowSeconds: Long): List<Node> =
+    filter { node -> node.matchesMapFilters(state, ourNodeNum, nowSeconds) }
 
 /**
  * Result of resolving a [TracerouteOverlay]'s node nums into displayable [Node] instances.
@@ -275,5 +319,33 @@ enum class LastHeardFilter(val label: StringResource, val seconds: Long) {
 
     companion object {
         fun fromSeconds(seconds: Long): LastHeardFilter = entries.find { it.seconds == seconds } ?: Any
+    }
+}
+
+/**
+ * Graph-distance ("max hops away") map filter. Slider goes 0 (direct connect) .. 5, then [Any] (the default, no
+ * filtering). [maxHops] is the inclusive upper bound on a node's [Node.hopsAway]; [Any] uses the [ANY] sentinel.
+ *
+ * Entries are declared in slider order. [label] is set only for entries with a worded label ([Direct], [Any]); the
+ * numeric entries render their [maxHops] value directly so we don't ship throwaway "1".."5" string resources.
+ */
+@Suppress("MagicNumber")
+enum class MaxHopsFilter(val label: StringResource?, val maxHops: Int) {
+    Direct(Res.string.max_hops_direct, 0),
+    OneHop(null, 1),
+    TwoHops(null, 2),
+    ThreeHops(null, 3),
+    FourHops(null, 4),
+    FiveHops(null, 5),
+    // -1 == ANY (no filtering); the literal is used here, not the companion's ANY const, because an
+    // enum entry initializer runs before the companion object is initialized.
+    Any(Res.string.any, -1),
+    ;
+
+    companion object {
+        /** Sentinel [maxHops] for [Any] (no filtering). */
+        const val ANY = -1
+
+        fun fromHops(maxHops: Int): MaxHopsFilter = entries.find { it.maxHops == maxHops } ?: Any
     }
 }

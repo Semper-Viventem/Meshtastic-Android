@@ -50,6 +50,7 @@ import org.meshtastic.core.ui.icon.Lens
 import org.meshtastic.core.ui.icon.MeshtasticIcons
 import org.meshtastic.core.ui.icon.PinDrop
 import org.meshtastic.feature.map.LastHeardFilter
+import org.meshtastic.feature.map.component.MaxHopsFilterControl
 import kotlin.math.roundToInt
 
 @Composable
@@ -130,6 +131,10 @@ internal fun MapFilterDropdown(expanded: Boolean, onDismissRequest: () -> Unit, 
                 steps = filterOptions.size - 2,
             )
         }
+        MaxHopsFilterControl(
+            selected = mapFilterState.maxHopsFilter,
+            onSelectedChange = { mapViewModel.setMaxHopsFilter(it) },
+        )
     }
 }
 

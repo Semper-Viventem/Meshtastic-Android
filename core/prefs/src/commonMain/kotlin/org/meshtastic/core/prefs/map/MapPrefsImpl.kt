@@ -83,12 +83,24 @@ class MapPrefsImpl(
         scope.launch { dataStore.edit { it[KEY_LAST_HEARD_TRACK_FILTER_PREF] = seconds } }
     }
 
+    override val maxHopsFilter: StateFlow<Int> =
+        dataStore.data
+            .map { it[KEY_MAX_HOPS_FILTER_PREF] ?: MAX_HOPS_FILTER_ANY }
+            .stateIn(scope, SharingStarted.Eagerly, MAX_HOPS_FILTER_ANY)
+
+    override fun setMaxHopsFilter(maxHops: Int) {
+        scope.launch { dataStore.edit { it[KEY_MAX_HOPS_FILTER_PREF] = maxHops } }
+    }
+
     companion object {
+        // Default == no filtering; mirrors MaxHopsFilter.ANY without depending on the feature:map module.
+        private const val MAX_HOPS_FILTER_ANY = -1
         val KEY_MAP_STYLE_PREF = intPreferencesKey("map_style_id")
         val KEY_SHOW_ONLY_FAVORITES_PREF = booleanPreferencesKey("show_only_favorites")
         val KEY_SHOW_WAYPOINTS_PREF = booleanPreferencesKey("show_waypoints")
         val KEY_SHOW_PRECISION_CIRCLE_PREF = booleanPreferencesKey("show_precision_circle")
         val KEY_LAST_HEARD_FILTER_PREF = longPreferencesKey("last_heard_filter")
         val KEY_LAST_HEARD_TRACK_FILTER_PREF = longPreferencesKey("last_heard_track_filter")
+        val KEY_MAX_HOPS_FILTER_PREF = intPreferencesKey("max_hops_filter")
     }
 }

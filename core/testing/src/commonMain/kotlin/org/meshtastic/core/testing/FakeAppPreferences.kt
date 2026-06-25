@@ -275,6 +275,12 @@ class FakeMapPrefs : MapPrefs {
     override fun setLastHeardTrackFilter(seconds: Long) {
         lastHeardTrackFilter.value = seconds
     }
+
+    override val maxHopsFilter = MutableStateFlow(-1)
+
+    override fun setMaxHopsFilter(maxHops: Int) {
+        maxHopsFilter.value = maxHops
+    }
 }
 
 class FakeMapConsentPrefs : MapConsentPrefs {

@@ -135,6 +135,8 @@ import org.meshtastic.feature.map.BaseMapViewModel.MapFilterState
 import org.meshtastic.feature.map.LastHeardFilter
 import org.meshtastic.feature.map.component.MapButton
 import org.meshtastic.feature.map.component.MapControlsOverlay
+import org.meshtastic.feature.map.component.MaxHopsFilterControl
+import org.meshtastic.feature.map.matchesMapFilters
 import org.meshtastic.proto.Config.DisplayConfig.DisplayUnits
 import org.meshtastic.proto.Waypoint
 import org.osmdroid.bonuspack.utils.BonusPackHelper.getBitmapFromVectorDrawable
@@ -346,14 +348,7 @@ fun MapView(
         val displayUnits = mapViewModel.config.display?.units ?: DisplayUnits.METRIC
         val mapFilterStateValue = mapViewModel.mapFilterStateFlow.value // Access mapFilterState directly
         return nodesWithPosition.mapNotNull { node ->
-            if (mapFilterStateValue.onlyFavorites && !node.isFavorite && !node.equals(ourNode)) {
-                return@mapNotNull null
-            }
-            if (
-                mapFilterStateValue.lastHeardFilter.seconds != 0L &&
-                (nowSeconds - node.lastHeard) > mapFilterStateValue.lastHeardFilter.seconds &&
-                node.num != ourNode?.num
-            ) {
+            if (!node.matchesMapFilters(mapFilterStateValue, ourNode?.num, nowSeconds)) {
                 return@mapNotNull null
             }
 
@@ -824,6 +819,10 @@ private fun FdroidMainMapFilterDropdown(
                 steps = filterOptions.size - 2,
             )
         }
+        MaxHopsFilterControl(
+            selected = mapFilterState.maxHopsFilter,
+            onSelectedChange = { mapViewModel.setMaxHopsFilter(it) },
+        )
     }
 }
 

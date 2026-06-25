@@ -66,6 +66,7 @@ class BaseMapViewModelTest {
         every { mapPrefs.showPrecisionCircleOnMap } returns MutableStateFlow(false)
         every { mapPrefs.lastHeardFilter } returns MutableStateFlow(0L)
         every { mapPrefs.lastHeardTrackFilter } returns MutableStateFlow(0L)
+        every { mapPrefs.maxHopsFilter } returns MutableStateFlow(-1)
 
         waypointPacketsFlow = MutableStateFlow(emptyList())
         every { packetRepository.getWaypoints() } returns waypointPacketsFlow
